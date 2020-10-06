@@ -21,7 +21,7 @@ impl Program {
 }
 
 pub fn program(input: &str) -> IResult<&str, Program> {
-    let (input, instructions) = many1(instruction_one)(input)?;
+    let (input, instructions) = many1(instruction)(input)?;
     Ok((input, Program { instructions }))
 }
 

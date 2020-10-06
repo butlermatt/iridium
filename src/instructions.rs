@@ -13,9 +13,9 @@ pub enum Opcode {
     NEQ,
     GT,
     LT,
-    GTQ,
-    LTQ,
-    JEQ,
+    GTE,
+    LTE,
+    JMPE,
     IGL
 }
 
@@ -36,9 +36,33 @@ impl From<u8> for Opcode {
             10 => Opcode::NEQ,
             11 => Opcode::GT,
             12 => Opcode::LT,
-            13 => Opcode::GTQ,
-            14 => Opcode::LTQ,
-            15 => Opcode::JEQ,
+            13 => Opcode::GTE,
+            14 => Opcode::LTE,
+            15 => Opcode::JMPE,
+            _ => Opcode::IGL
+        }
+    }
+}
+
+impl From<&str> for Opcode {
+    fn from(v: &str) -> Self {
+        match v {
+            "hlt"  => Opcode::HLT,
+            "load" => Opcode::LOAD,
+            "add"  => Opcode::ADD,
+            "sub"  => Opcode::SUB,
+            "mul"  => Opcode::MUL,
+            "div"  => Opcode::DIV,
+            "jmp"  => Opcode::JMP,
+            "jmpf"  => Opcode::JMPF,
+            "jmpb"  => Opcode::JMPB,
+            "eq"  => Opcode::EQ,
+            "neq" => Opcode::NEQ,
+            "gt" => Opcode::GT,
+            "lt" => Opcode::LT,
+            "gte" => Opcode::GTE,
+            "lte" => Opcode::LTE,
+            "jmpe" => Opcode::JMPE,
             _ => Opcode::IGL
         }
     }
@@ -79,6 +103,15 @@ mod tests {
         assert_eq!(opcode, Opcode::HLT);
 
         opcode = Opcode::from(100);
+        assert_eq!(opcode, Opcode::IGL);
+    }
+
+    #[test]
+    fn test_opcode_from_str() {
+        let mut opcode = Opcode::from("load");
+        assert_eq!(opcode, Opcode::LOAD);
+
+        opcode = Opcode::from("oadl");
         assert_eq!(opcode, Opcode::IGL);
     }
 }

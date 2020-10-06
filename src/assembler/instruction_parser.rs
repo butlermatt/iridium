@@ -1,11 +1,13 @@
 use super::{
     Token,
     opcode_parser::*,
-    operand_parser::integer_operand,
-    register_parsers::register
+    operand_parser::operand,
 };
 
-use nom::IResult;
+use nom::{
+    IResult,
+    combinator::opt,
+};
 
 #[derive(Debug, PartialEq)]
 pub struct AssemblerInstruction {
@@ -58,20 +60,34 @@ impl AssemblerInstruction {
     }
 }
 
+pub fn instruction(input: &str) -> IResult<&str, AssemblerInstruction> {
+    let input = input.trim();
+    let (input, ins) = instruction_combined(input)?;
+    Ok((input, ins))
+}
+
 /// Handles instructions of the following form:
-/// LOAD $0 #100
-pub fn instruction_one(input: &str) -> IResult<&str, AssemblerInstruction> {
+/// HLT
+fn instruction_combined(input: &str) -> IResult<&str, AssemblerInstruction> {
     let input = input.trim();
     let (input, opcode) = opcode_load(input)?;
-    let (input, reg_num) = register(input)?;
-    let (input, value) = integer_operand(input)?;
+    let (input, operand1) = opt(operand)(input)?;
+    let (input, operand2) = opt(operand)(input)?;
+    let (input, operand3) = opt(operand)(input)?;
     Ok((input, AssemblerInstruction{
         opcode,
-        operand1: Some(reg_num),
-        operand2: Some(value),
-        operand3: None,
+        operand1,
+        operand2,
+        operand3,
     }))
 }
+//
+// fn instruction_one(input: &str) -> IResult<&str, AssemblerInstruction> {
+//     let input = input.trim();
+//     let (input, opcode) = opcode_load(input)?;
+//     let (input, operand1) = operand(input)?;
+//
+// }
 
 #[cfg(test)]
 mod tests {
@@ -80,7 +96,7 @@ mod tests {
 
     #[test]
     fn test_parse_instruction_from_one() {
-        let result = instruction_one("load $0 #100\n");
+        let result = instruction("load $0 #100\n");
         assert_eq!(
             result, Ok((
                 "",

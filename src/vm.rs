@@ -83,7 +83,7 @@ impl VM {
                 self.pc -= amount as usize;
                 false
             },
-            Opcode::EQ | Opcode::NEQ | Opcode::GT | Opcode::LT | Opcode::GTQ | Opcode::LTQ => {
+            Opcode::EQ | Opcode::NEQ | Opcode::GT | Opcode::LT | Opcode::GTE | Opcode::LTE => {
                 let reg1 = self.registers[self.next_8_bits() as usize];
                 let reg2 = self.registers[self.next_8_bits() as usize];
                 self.equal_flag = match op {
@@ -91,15 +91,15 @@ impl VM {
                     Opcode::NEQ => { reg1 != reg2 },
                     Opcode::GT => { reg1 > reg2 },
                     Opcode::LT => { reg1 < reg2 },
-                    Opcode::GTQ => { reg1 >= reg2 },
-                    Opcode::LTQ => { reg1 <= reg2 },
+                    Opcode::GTE => { reg1 >= reg2 },
+                    Opcode::LTE => { reg1 <= reg2 },
                     _ => { false } // Can't reach this point
                 };
 
                 self.next_8_bits(); // Eat empty byte?
                 false
             },
-            Opcode::JEQ => {
+            Opcode::JMPE => {
                 let register = self.next_8_bits() as usize;
                 let target = self.registers[register];
                 if self.equal_flag {
