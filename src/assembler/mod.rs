@@ -9,7 +9,10 @@ pub mod operand_parser;
 pub mod instruction_parser;
 pub mod program_parser;
 pub mod directive_parser;
-mod label_parsers;
+pub mod label_parsers;
+
+pub const PIE_HEADER_PREFIX: [u8; 4] = [45, 50, 49, 45];
+pub const PIE_HEADER_LENGTH: usize = 64;
 
 #[derive(Debug, PartialEq)]
 pub enum Token {
@@ -89,8 +92,13 @@ impl Assembler {
     pub fn assemble(&mut self, raw: &str) -> Option<Vec<u8>> {
         match program(raw) {
             Ok((_remainder, prog)) => {
+                let mut assembled_program = self.write_pie_header();
                 self.process_first_phase(&prog);
-                Some(self.process_second_phase(&prog))
+                let mut body = self.process_second_phase(&prog);
+
+                // Merge the header with the populated body vector
+                assembled_program.append(&mut body);
+                Some(assembled_program)
             },
             Err(e) => {
                 println!("There was an error assembling the code: {:?}", e);
@@ -129,6 +137,19 @@ impl Assembler {
             c += 4;
         }
     }
+
+    fn write_pie_header(&self) -> Vec<u8> {
+        let mut header = vec![];
+        for byte in PIE_HEADER_PREFIX.iter() {
+            header.push(byte.clone());
+        }
+
+        while header.len() <= PIE_HEADER_LENGTH {
+            header.push(0);
+        }
+
+        header
+    }
 }
 
 #[cfg(test)]
@@ -156,9 +177,8 @@ mod tests {
         let test_string = "load $0 #100\nload $1 #1\nload $2 #0\ntest: inc $0\nneq $0 $2\njmpe @test\nhlt";
         let program = asm.assemble(test_string).unwrap();
         let mut vm = VM::new();
-        assert_eq!(program.len(), 24);
-        println!("{:?}", program);
+        assert_eq!(program.len(), 89);
         vm.add_bytes(program);
-        assert_eq!(vm.program.len(), 24);
+        assert_eq!(vm.program.len(), 89);
     }
 }
