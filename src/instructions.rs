@@ -2,6 +2,8 @@
 pub enum Opcode {
     HLT,
     LOAD,
+    INC,
+    DEC,
     ADD,
     SUB,
     MUL,
@@ -16,6 +18,7 @@ pub enum Opcode {
     GTE,
     LTE,
     JMPE,
+    ALOC,
     IGL
 }
 
@@ -25,20 +28,23 @@ impl From<u8> for Opcode {
         match v {
             0  => Opcode::HLT,
             1  => Opcode::LOAD,
-            2  => Opcode::ADD,
-            3  => Opcode::SUB,
-            4  => Opcode::MUL,
-            5  => Opcode::DIV,
-            6  => Opcode::JMP,
-            7  => Opcode::JMPF,
-            8  => Opcode::JMPB,
-            9  => Opcode::EQ,
-            10 => Opcode::NEQ,
-            11 => Opcode::GT,
-            12 => Opcode::LT,
-            13 => Opcode::GTE,
-            14 => Opcode::LTE,
-            15 => Opcode::JMPE,
+            2  => Opcode::INC,
+            3  => Opcode::DEC,
+            4  => Opcode::ADD,
+            5  => Opcode::SUB,
+            6  => Opcode::MUL,
+            7  => Opcode::DIV,
+            8  => Opcode::JMP,
+            9  => Opcode::JMPF,
+            10 => Opcode::JMPB,
+            11 => Opcode::EQ,
+            12 => Opcode::NEQ,
+            13 => Opcode::GT,
+            14 => Opcode::LT,
+            15 => Opcode::GTE,
+            16 => Opcode::LTE,
+            17 => Opcode::JMPE,
+            18 => Opcode::ALOC,
             _ => Opcode::IGL
         }
     }
@@ -49,6 +55,8 @@ impl From<&str> for Opcode {
         match v {
             "hlt"  => Opcode::HLT,
             "load" => Opcode::LOAD,
+            "inc"  => Opcode::INC,
+            "dec"  => Opcode::DEC,
             "add"  => Opcode::ADD,
             "sub"  => Opcode::SUB,
             "mul"  => Opcode::MUL,
@@ -63,6 +71,7 @@ impl From<&str> for Opcode {
             "gte" => Opcode::GTE,
             "lte" => Opcode::LTE,
             "jmpe" => Opcode::JMPE,
+            "aloc" => Opcode::ALOC,
             _ => Opcode::IGL
         }
     }

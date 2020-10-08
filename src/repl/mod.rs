@@ -1,14 +1,21 @@
-use std::{self, io::{self, Write}};
+use std::{
+    self,
+    io::{self, Write},
+    path::Path,
+    num::ParseIntError,
+    fs::File,
+};
 
 use crate::vm::VM;
 use crate::assembler::program_parser::*;
-
-use std::num::ParseIntError;
+use std::io::Read;
+use crate::assembler::Assembler;
 
 pub struct REPL {
     command_buffer: Vec<String>,
     // The VM the REPL will use to execute code
     vm: VM,
+    asm: Assembler,
 }
 
 impl REPL {
@@ -16,6 +23,7 @@ impl REPL {
     pub fn new() -> Self {
         REPL {
             vm: VM::new(),
+            asm: Assembler::new(),
             command_buffer: vec![]
         }
     }
@@ -62,6 +70,31 @@ impl REPL {
                     println!("{:#?}", self.vm.registers);
                     println!("End of Register Listing");
                 },
+                ".clear" => {
+                    println!("Clearing program contents");
+                    self.vm.program.clear();
+                },
+                ".load_file" => {
+                    print!("Please enter the path to the file you wish to load: ");
+                    // io::stdout().flush().expect("Unable to flush stdout");
+                    let mut tmp = String::new();
+                    stdin.read_line(&mut tmp).expect("Unable to read line from user");
+                    let tmp = tmp.trim();
+                    let filename = Path::new(&tmp);
+                    let mut f = File::open(filename).expect("File not found");
+                    let mut contents = String::new();
+                    f.read_to_string(&mut contents).expect("There was an error reading from the file");
+                    let program = match program(&contents) {
+                        Ok((_remainder, prog)) => {
+                            prog
+                        },
+                        Err(e) => {
+                            println!("Unable to parse input: {:?}", e);
+                            continue;
+                        }
+                    };
+                    self.vm.program.append(&mut program.to_bytes(&self.asm.symbols))
+                },
                 _ => {
                     let program = match program(buffer.into()) {
                         Ok((_, program)) => program,
@@ -71,7 +104,7 @@ impl REPL {
                         }
                     };
 
-                    self.vm.program.append(&mut program.to_bytes());
+                    self.vm.program.append(&mut program.to_bytes(&self.asm.symbols));
                     self.vm.run_once();
                 }
             }

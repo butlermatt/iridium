@@ -2,12 +2,13 @@ use super::*;
 
 use nom::{
     IResult,
-    combinator::map_res,
+    branch::alt,
     bytes::complete::tag,
     character::complete::{digit1, multispace0},
+    combinator::map_res,
     sequence::delimited,
 };
-use nom::branch::alt;
+
 use crate::assembler::register_parsers::register;
 
 // Parser for integer numbers, which we preface with a `#` in our assembly language

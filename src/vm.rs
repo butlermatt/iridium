@@ -4,6 +4,7 @@ pub struct VM {
     pub registers: [i32; 32],
     pc: usize,
     pub program: Vec<u8>,
+    heap: Vec<u8>,
     remainder: u32,
     equal_flag: bool,
 }
@@ -14,6 +15,7 @@ impl VM {
             registers: [0; 32],
             pc: 0,
             program: vec![],
+            heap: vec![],
             remainder: 0,
             equal_flag: false,
         }
@@ -34,24 +36,35 @@ impl VM {
         self.program.push(byte);
     }
 
+    pub fn add_bytes(&mut self, mut bytes: Vec<u8>) {
+        self.program.append(&mut bytes);
+    }
+
     fn execute_instruction(&mut self) -> bool {
         // If our program counter has exceeded the length of the program itself,
         // something has gong awry
         if self.pc >= self.program.len() {
-            return false;
+            return true;
         }
 
         let op = self.decode_opcode();
 
         match op {
             Opcode::HLT => {
-                true
+                return true;
             },
             Opcode::LOAD => {
                 let register = self.next_8_bits() as usize; // we cast to usize so we can use it as an index into the array
                 let number = self.next_16_bits() as u16;
                 self.registers[register] = number as i32; // Our registers are i32s so we need to cast it. We'll cover that later.
-                false
+            },
+            Opcode::INC => {
+                let register = self.next_8_bits() as usize;
+                self.registers[register] += 1;
+            },
+            Opcode::DEC => {
+                let register = self.next_8_bits() as usize;
+                self.registers[register] -= 1;
             },
             Opcode::ADD | Opcode::SUB | Opcode::MUL | Opcode::DIV => {
                 let reg1 = self.registers[self.next_8_bits() as usize];
@@ -66,22 +79,18 @@ impl VM {
                     },
                     _ => { -100 } // Impossible to reach
                 };
-                false
             },
             Opcode::JMP => {
                 let target = self.registers[self.next_8_bits() as usize];
                 self.pc = target as usize;
-                false
             },
             Opcode::JMPF => {
                 let amount = self.registers[self.next_8_bits() as usize];
                 self.pc += amount as usize;
-                false
             },
             Opcode::JMPB => {
                let amount = self.registers[self.next_8_bits() as usize];
                 self.pc -= amount as usize;
-                false
             },
             Opcode::EQ | Opcode::NEQ | Opcode::GT | Opcode::LT | Opcode::GTE | Opcode::LTE => {
                 let reg1 = self.registers[self.next_8_bits() as usize];
@@ -97,7 +106,6 @@ impl VM {
                 };
 
                 self.next_8_bits(); // Eat empty byte?
-                false
             },
             Opcode::JMPE => {
                 let register = self.next_8_bits() as usize;
@@ -105,13 +113,20 @@ impl VM {
                 if self.equal_flag {
                     self.pc = target as usize;
                 }
-                false
+            },
+            Opcode::ALOC => {
+                let register = self.next_8_bits() as usize;
+                let bytes = self.registers[register];
+                let new_end = self.heap.len() as i32 + bytes;
+                self.heap.resize(new_end as usize, 0);
             },
             Opcode::IGL => {
                 println!("Illegal Instruction encountered");
-                true
+                return true;
             }
         }
+
+        false
     }
 
     fn decode_opcode(&mut self) -> Opcode {
@@ -161,9 +176,22 @@ mod test {
     }
 
     #[test]
+    fn test_inc_opcode() {
+        let mut test_vm = VM::new();
+        test_vm.registers[0] = 100;
+        test_vm.program = vec![2, 0, 0, 0];
+        test_vm.run_once();
+        assert_eq!(test_vm.registers[0], 101);
+    }
+
+    #[test]
     fn test_add_opcode() {
         let mut test_vm = VM::new();
-        test_vm.program = vec![1, 0, 0, 1, 1, 1, 0, 1, 2, 0, 1, 2, 0];
+        test_vm.program = vec![
+            1, 0, 0, 1, // Load 1 into r0
+            1, 1, 0, 1, // Load 1 into r1
+            4, 0, 1, 2, // Add r0 and r1 and store in r2
+            0];
         test_vm.run();
         assert_eq!(test_vm.registers[2], 2);
     }
@@ -174,7 +202,7 @@ mod test {
         test_vm.program = vec![
             1, 0, 0, 4, // Load 4 => r0
             1, 1, 0, 1, // Load 1 => r1
-            3, 0, 1, 2, // SUB r0 - r1 => r2
+            5, 0, 1, 2, // SUB r0 - r1 => r2
             0]; // Halt
         test_vm.run();
         assert_eq!(test_vm.registers[2], 3);
@@ -186,7 +214,7 @@ mod test {
         test_vm.program = vec![
             1, 0, 0, 4, // Load 4 => r0
             1, 1, 0, 2, // Load 2 => r1
-            4, 0, 1, 2, // MUL r0 * r1 => r2
+            6, 0, 1, 2, // MUL r0 * r1 => r2
             0]; // Halt
         test_vm.run();
         assert_eq!(test_vm.registers[2], 8);
@@ -198,7 +226,7 @@ mod test {
         test_vm.program = vec![
             1, 0, 0, 5, // Load 4 => r0
             1, 1, 0, 2, // Load 2 => r1
-            5, 0, 1, 2, // DIV r0 - r1 => r2
+            7, 0, 1, 2, // DIV r0 - r1 => r2
             0]; // Halt
         test_vm.run();
         assert_eq!(test_vm.registers[2], 2);
@@ -210,7 +238,7 @@ mod test {
         let mut test_vm = VM::new();
         test_vm.program = vec![
             1, 0, 0, 1, // Load 1 into r0
-            6, 0, // JMP from r0 (pc = 1)
+            8, 0, 0, 0,// JMP from r0 (pc = 1)
         0]; // Halt
         test_vm.run_once();
         test_vm.run_once();
@@ -222,7 +250,7 @@ mod test {
         let mut test_vm = VM::new();
         test_vm.program = vec![
             1, 0, 0, 2, // Load 1 into r0
-            7, 0, // JMPF from r0 (pc = 8)
+            9, 0, 0, 0,// JMPF from r0 (pc = 8)
             0]; // Halt
         test_vm.run_once();
         test_vm.run_once();
@@ -233,8 +261,8 @@ mod test {
     fn test_jmpb_opcode() {
         let mut test_vm = VM::new();
         test_vm.program = vec![
-            1, 0, 0, 2, // Load 1 into r0
-            8, 0, // JMPB from r0 (pc = 4)
+            1,  0, 0, 2, // Load 1 into r0
+            10, 0, 0, 0,// JMPB from r0 (pc = 4)
             0]; // Halt
         test_vm.run_once();
         test_vm.run_once();
@@ -247,8 +275,8 @@ mod test {
         test_vm.registers[0] = 10;
         test_vm.registers[1] = 10;
         test_vm.program = vec![
-            9, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
-            9, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
+            11, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
+            11, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
         0]; // Halt
         test_vm.run_once();
         assert_eq!(test_vm.equal_flag, true);
@@ -263,8 +291,8 @@ mod test {
         test_vm.registers[0] = 10;
         test_vm.registers[1] = 10;
         test_vm.program = vec![
-            10, 0, 1, 0, // NEQ r0 != r1 (ignore last 0)
-            10, 0, 1, 0, // NEQ r0 != r1 (ignore last 0)
+            12, 0, 1, 0, // NEQ r0 != r1 (ignore last 0)
+            12, 0, 1, 0, // NEQ r0 != r1 (ignore last 0)
             0]; // Halt
         test_vm.run_once();
         assert_eq!(test_vm.equal_flag, false);
@@ -279,8 +307,8 @@ mod test {
         test_vm.registers[0] = 20;
         test_vm.registers[1] = 10;
         test_vm.program = vec![
-            11, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
-            11, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
+            13, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
+            13, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
             0]; // Halt
         test_vm.run_once();
         assert_eq!(test_vm.equal_flag, true);
@@ -295,8 +323,8 @@ mod test {
         test_vm.registers[0] = 10;
         test_vm.registers[1] = 10;
         test_vm.program = vec![
-            12, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
-            12, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
+            14, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
+            14, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
             0]; // Halt
         test_vm.run_once();
         assert_eq!(test_vm.equal_flag, false);
@@ -311,9 +339,9 @@ mod test {
         test_vm.registers[0] = 20;
         test_vm.registers[1] = 10;
         test_vm.program = vec![
-            13, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
-            13, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
-            13, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
+            15, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
+            15, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
+            15, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
             0]; // Halt
         test_vm.run_once();
         assert_eq!(test_vm.equal_flag, true);
@@ -331,9 +359,9 @@ mod test {
         test_vm.registers[0] = 10;
         test_vm.registers[1] = 10;
         test_vm.program = vec![
-            14, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
-            14, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
-            14, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
+            16, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
+            16, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
+            16, 0, 1, 0, // EQ r0 == r1 (ignore last 0)
             0]; // Halt
         test_vm.run_once();
         assert_eq!(test_vm.equal_flag, true);
@@ -351,16 +379,16 @@ mod test {
         test_vm.registers[0] = 7;
         test_vm.equal_flag = true;
         test_vm.program = vec![
-            15, 0, 0, 0,
-            16, 0, 0, 0,
-            16, 0, 0, 0,
+            17, 0, 0, 0,
+            17, 0, 0, 0,
+            17, 0, 0, 0,
         ];
         test_vm.run_once();
         assert_eq!(test_vm.pc, 7);
     }
 
     #[test]
-    fn test_opcode_igl() {
+    fn test_igl_opcode() {
         let mut test_vm = VM::new();
         let test_bytes = vec![200,0,0,0];
         test_vm.program = test_bytes;
@@ -368,4 +396,12 @@ mod test {
         assert_eq!(test_vm.pc, 1);
     }
 
+    #[test]
+    fn test_aloc_opcode() {
+        let mut test_vm = VM::new();
+        test_vm.registers[0] = 1024;
+        test_vm.program = vec![18, 0, 0, 0];
+        test_vm.run_once();
+        assert_eq!(test_vm.heap.len(), 1024);
+    }
 }
