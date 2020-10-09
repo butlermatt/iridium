@@ -51,4 +51,11 @@ mod tests {
         assert_eq!(bytecode.len(), 4);
         assert_eq!(bytecode, vec![1, 0, 0, 100]);
     }
+
+    #[test]
+    fn test_complete_program() {
+        let input = ".data\nhello: .asciiz 'Hello everyone!'\n.code\nhlt";
+        let result = program(input);
+        assert!(result.is_ok());
+    }
 }

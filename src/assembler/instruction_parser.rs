@@ -61,11 +61,37 @@ impl AssemblerInstruction {
         self.directive.is_some()
     }
 
-    pub fn label_name(&self) -> Option<String> {
+    pub fn get_label_name(&self) -> Option<String> {
         if let Some(l) = &self.label {
             match l {
                 Token::LabelDeclaration { name } => Some(name.clone()),
                 _ => None
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn get_directive_name(&self) -> Option<String> {
+        if let Some(d) = &self.directive {
+            match d {
+                Token::Directive { name } => Some(name.to_string()),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn has_operands(&self) -> bool {
+        self.operand1.is_some()
+    }
+
+    pub fn get_string_constant(&self) -> Option<String> {
+        if let Some(d) = &self.operand1 {
+            match d {
+                Token::IrString { name } => Some(name.to_string()),
+                _ => None,
             }
         } else {
             None

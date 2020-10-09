@@ -26,7 +26,7 @@ fn main() {
         let mut vm = vm::VM::new();
         let program = asm.assemble(&program);
 
-        if let Some(prog) = program {
+        if let Ok(prog) = program {
             vm.add_bytes(prog);
             vm.run();
             std::process::exit(0);

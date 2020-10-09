@@ -8,6 +8,7 @@ pub struct VM {
     heap: Vec<u8>,
     remainder: u32,
     equal_flag: bool,
+    ro_data: Vec<u8>,
 }
 
 impl VM {
@@ -19,6 +20,7 @@ impl VM {
             heap: vec![],
             remainder: 0,
             equal_flag: false,
+            ro_data: vec![],
         }
     }
 
@@ -120,6 +122,23 @@ impl VM {
                 let bytes = self.registers[register];
                 let new_end = self.heap.len() as i32 + bytes;
                 self.heap.resize(new_end as usize, 0);
+            },
+            Opcode::PRTS => {
+                // Takes one operand either a starting index in the RO section of memory
+                // Or a symbol (in the form of @symbol_name) which will look up the offset in the symbol table.
+                // The instruction reads each byte and prints it, until it comes to NULL
+                let starting_offset = self.next_16_bits() as usize;
+                let mut ending_offset = starting_offset;
+                let slice = self.ro_data.as_slice();
+                while slice[ending_offset] != 0 {
+                    ending_offset += 1;
+                }
+
+                let result = std::str::from_utf8(&slice[starting_offset..ending_offset]);
+                match result {
+                    Ok(s) => print!("{}", s),
+                    Err(e) => println!("Error decoding string for PTRS instruction: {:?}", e),
+                };
             },
             Opcode::IGL => {
                 println!("Illegal Instruction encountered");
