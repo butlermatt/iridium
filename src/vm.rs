@@ -15,16 +15,23 @@ impl VM {
     pub fn new() -> Self {
         VM {
             registers: [0; 32],
-            pc: 65,
             program: vec![],
+            ro_data: vec![],
             heap: vec![],
+            pc: 65,
             remainder: 0,
             equal_flag: false,
-            ro_data: vec![],
         }
     }
 
     pub fn run(&mut self) {
+        if !self.verify_header() {
+            eprintln!("Header was incorrect");
+            std::process::exit(1);
+        }
+
+        // If the header is valid, we need to change the PC to be at bit 65.
+        self.pc = 65;
         let mut is_done = false;
         while !is_done {
             is_done = self.execute_instruction();
@@ -51,9 +58,9 @@ impl VM {
         }
 
         let op = self.decode_opcode();
-
         match op {
             Opcode::HLT => {
+                println!("HLT encountered");
                 return true;
             },
             Opcode::LOAD => {
@@ -115,6 +122,16 @@ impl VM {
                 let target = self.registers[register];
                 if self.equal_flag {
                     self.pc = target as usize;
+                } else {
+                    // TODO: Fix the bits?
+                }
+            },
+            Opcode::DJMPE => {
+                let destination = self.next_16_bits();
+                if self.equal_flag {
+                    self.pc = destination as usize;
+                } else {
+                    self.next_8_bits();
                 }
             },
             Opcode::ALOC => {
@@ -137,8 +154,13 @@ impl VM {
                 let result = std::str::from_utf8(&slice[starting_offset..ending_offset]);
                 match result {
                     Ok(s) => print!("{}", s),
-                    Err(e) => println!("Error decoding string for PTRS instruction: {:?}", e),
+                    Err(e) => println!("Error decoding string for PTRS instruction: {:#?}", e),
                 };
+            },
+            Opcode::NOP => {
+                self.next_8_bits();
+                self.next_8_bits();
+                self.next_8_bits();
             },
             Opcode::IGL => {
                 println!("Illegal Instruction encountered");
@@ -167,9 +189,12 @@ impl VM {
         return result;
     }
 
-    #[allow(dead_code)]
     fn verify_header(&self) -> bool {
-        self.program[0..4] == PIE_HEADER_PREFIX
+        println!("{:?}", self.program);
+        if self.program[0..4] != PIE_HEADER_PREFIX {
+            return false;
+        }
+        true
     }
 }
 
@@ -179,13 +204,12 @@ mod test {
     use crate::assembler::PIE_HEADER_LENGTH;
 
     fn prepend_header(mut b: Vec<u8>) -> Vec<u8> {
-        let mut prepension = vec![];
-        for byte in PIE_HEADER_PREFIX.iter() {
-            prepension.push(byte.clone());
-        }
+        let mut prepension = PIE_HEADER_PREFIX.to_vec();
+
         while prepension.len() <= PIE_HEADER_LENGTH {
             prepension.push(0);
         }
+
         prepension.append(&mut b);
         prepension
     }
@@ -209,7 +233,7 @@ mod test {
     fn test_load_opcode() {
         let mut test_vm = VM::new();
         test_vm.program = prepend_header(vec![1, 0, 1, 244]);
-        test_vm.run_once();
+        test_vm.run();
         assert_eq!(test_vm.registers[0], 500);
     }
 
@@ -412,7 +436,7 @@ mod test {
     }
 
     #[test]
-    fn test_jeq_opcode() {
+    fn test_jmpe_opcode() {
         let mut test_vm = VM::new();
         test_vm.registers[0] = 7;
         test_vm.equal_flag = true;
@@ -438,7 +462,7 @@ mod test {
     fn test_aloc_opcode() {
         let mut test_vm = VM::new();
         test_vm.registers[0] = 1024;
-        test_vm.program = prepend_header(vec![18, 0, 0, 0]);
+        test_vm.program = prepend_header(vec![19, 0, 0, 0]);
         test_vm.run_once();
         assert_eq!(test_vm.heap.len(), 1024);
     }

@@ -16,6 +16,7 @@ pub mod label_parsers;
 pub mod assembler_errors;
 pub mod symbols;
 
+/// Magic number that begins every bytecode file
 pub const PIE_HEADER_PREFIX: [u8; 4] = [45, 50, 49, 45];
 pub const PIE_HEADER_LENGTH: usize = 64;
 
@@ -31,7 +32,13 @@ pub enum Token {
 }
 
 #[derive(Debug,PartialEq)]
-pub enum AssemblerPhase { First, Second }
+pub enum AssemblerPhase { First, Second, Clone }
+
+impl Default for AssemblerPhase {
+    fn default() -> Self {
+        AssemblerPhase::First
+    }
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum AssemblerSection {
@@ -116,7 +123,7 @@ impl Assembler {
                 // Make sure that we have at least one data section and one code section.
                 if self.sections.len() != 2 {
                     // TODO: Detail out which ones are missing.
-                    println!("Did not find exactly two sections.");
+                    eprintln!("Did not find exactly two sections.");
                     self.errors.push(AssemblerError::InsufficientSections);
                     return Err(self.errors.clone());
                 }
@@ -129,7 +136,7 @@ impl Assembler {
                 Ok(assembled_program)
             },
             Err(e) => {
-                println!("There was an error assembling the code: {:?}", e);
+                eprintln!("There was an error assembling the code: {:?}", e);
                 Err(vec![AssemblerError::ParseError {error: e.to_string()}])
             },
         }
@@ -154,7 +161,6 @@ impl Assembler {
             }
 
             // This is used to keep track of which instruction we hit an error on.
-            // TODO: Can this be removed/replaced?
             self.current_instruction += 1;
         }
 
@@ -207,7 +213,7 @@ impl Assembler {
             return;
         }
 
-        let symbol = Symbol::new_with_offset(name, SymbolType::Label, (self.current_instruction * 4) + 60);
+        let symbol = Symbol::new(name, SymbolType::Label);
         self.symbols.add_symbol(symbol);
     }
 
@@ -277,15 +283,12 @@ impl Assembler {
                 self.ro.push(0);
                 self.ro_offset += 1;
             },
-            None => println!("String constant following an .asciiz was empty")
+            None => eprintln!("String constant following an .asciiz was empty")
         }
     }
 
     fn write_pie_header(&self) -> Vec<u8> {
-        let mut header = vec![];
-        for byte in PIE_HEADER_PREFIX.iter() {
-            header.push(byte.clone());
-        }
+        let mut header = PIE_HEADER_PREFIX.to_vec();
 
         while header.len() <= PIE_HEADER_LENGTH {
             header.push(0);
@@ -309,5 +312,43 @@ mod tests {
         assert_eq!(program.len(), 93);
         vm.add_bytes(program);
         assert_eq!(vm.program.len(), 93);
+    }
+
+    #[test]
+    fn test_ro_data() {
+        let mut asm = Assembler::new();
+        let test_string = ".data\ntest: .asciiz 'This is a test'\n.code\n";
+        let program = asm.assemble(test_string);
+        assert!(program.is_ok());
+    }
+
+    #[test]
+    fn test_bad_ro_data() {
+        let mut asm = Assembler::new();
+        let test_string = ".code\ntest: .asciiz 'This is a test'\n.wrong\n";
+        let program = asm.assemble(test_string);
+        assert!(program.is_err());
+    }
+
+    #[test]
+    fn test_first_phase_no_segment() {
+        let mut asm = Assembler::new();
+        let test_string = "hello: .asciiz 'Fail'";
+        let result = program(test_string);
+        assert!(result.is_ok());
+        let (_, p) = result.unwrap();
+        asm.process_first_phase(&p);
+        assert_eq!(asm.errors.len(), 1);
+    }
+
+    #[test]
+    fn test_first_phase_inside_segment() {
+        let mut asm = Assembler::new();
+        let test_string = ".data\ntest: .asciiz 'Hello'";
+        let result = program(test_string);
+        assert!(result.is_ok());
+        let (_, p) = result.unwrap();
+        asm.process_first_phase(&p);
+        assert_eq!(asm.errors.len(), 0);
     }
 }

@@ -18,8 +18,10 @@ pub enum Opcode {
     GTE,
     LTE,
     JMPE,
+    DJMPE,
     ALOC,
     PRTS,
+    NOP,
     IGL
 }
 
@@ -45,8 +47,10 @@ impl From<u8> for Opcode {
             15 => Opcode::GTE,
             16 => Opcode::LTE,
             17 => Opcode::JMPE,
-            18 => Opcode::ALOC,
-            19 => Opcode::PRTS,
+            18 => Opcode::DJMPE,
+            19 => Opcode::ALOC,
+            20 => Opcode::PRTS,
+            21 => Opcode::NOP,
             _ => Opcode::IGL
         }
     }
@@ -73,8 +77,10 @@ impl From<&str> for Opcode {
             "gte" => Opcode::GTE,
             "lte" => Opcode::LTE,
             "jmpe" => Opcode::JMPE,
+            "djmpe" => Opcode::DJMPE,
             "aloc" => Opcode::ALOC,
             "ptrs" => Opcode::PRTS,
+            "nop" => Opcode::NOP,
             _ => Opcode::IGL
         }
     }

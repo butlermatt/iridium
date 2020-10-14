@@ -1,15 +1,14 @@
 use std::{
     self,
-    io::{self, Write},
+    io::{self, Write, Read},
     path::Path,
     num::ParseIntError,
     fs::File,
 };
 
 use crate::vm::VM;
-use crate::assembler::program_parser::*;
-use std::io::Read;
 use crate::assembler::Assembler;
+use crate::assembler::program_parser::*;
 
 pub struct REPL {
     command_buffer: Vec<String>,
@@ -70,37 +69,58 @@ impl REPL {
                     println!("{:#?}", self.vm.registers);
                     println!("End of Register Listing");
                 },
-                ".clear" => {
+                ".symbols" => {
+                    println!("Listing symbols table:");
+                    println!("{:#?}", self.asm.symbols);
+                    println!("End of Symbols Listing");
+                },
+                ".clear_program" => {
                     println!("Clearing program contents");
                     self.vm.program.clear();
                 },
+                ".clear_registers" => {
+                    println!("Resetting all registers to 0");
+                    for i in 0..self.vm.registers.len() {
+                        self.vm.registers[i] = 0;
+                    }
+                },
                 ".load_file" => {
                     print!("Please enter the path to the file you wish to load: ");
-                    // io::stdout().flush().expect("Unable to flush stdout");
+                    io::stdout().flush().expect("Unable to flush stdout");
                     let mut tmp = String::new();
                     stdin.read_line(&mut tmp).expect("Unable to read line from user");
                     let tmp = tmp.trim();
                     let filename = Path::new(&tmp);
-                    let mut f = File::open(filename).expect("File not found");
-                    let mut contents = String::new();
-                    f.read_to_string(&mut contents).expect("There was an error reading from the file");
-                    let program = match program(&contents) {
-                        Ok((_remainder, prog)) => {
-                            prog
-                        },
+                    let mut f = match File::open(filename) {
+                        Ok(f) => f,
                         Err(e) => {
-                            println!("Unable to parse input: {:?}", e);
+                            eprintln!("There was an error opening the file: {:?}", e);
                             continue;
                         }
                     };
-                    self.vm.program.append(&mut program.to_bytes(&self.asm.symbols))
+                    let mut contents = String::new();
+                    f.read_to_string(&mut contents).expect("There was an error reading from the file");
+                    match self.asm.assemble(&contents) {
+                        Ok(mut assembled_program) => {
+                            println!("Sending assembled program to the VM");
+                            self.vm.program.append(&mut assembled_program);
+                            println!("{:#?}", self.vm.program);
+                            self.vm.run();
+                        },
+                        Err(errors) => {
+                            for error in errors {
+                                eprintln!("Unable to parse input: {}", error);
+                            }
+                            continue;
+                        }
+                    }
                 },
                 _ => {
                     let program = match program(buffer.into()) {
                         Ok((_, program)) => program,
-                        Err(_) => {
-                            println!("Unable to parse input");
-                            continue
+                        Err(e) => {
+                            eprintln!("Unable to parse input: {:?}", e);
+                            continue;
                         }
                     };
 
@@ -126,5 +146,11 @@ impl REPL {
         }
 
         Ok(results)
+    }
+}
+
+impl Default for REPL {
+    fn default() -> Self {
+        Self::new()
     }
 }

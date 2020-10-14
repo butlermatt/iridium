@@ -1,21 +1,27 @@
-pub mod vm;
-pub mod instructions;
-
-pub mod repl;
-pub mod assembler;
-
-use clap::{
-    App,
-    load_yaml,
-};
-
 use std::{
     fs::File,
     path::Path,
     io::prelude::*,
 };
 
+use clap::{
+    App,
+    load_yaml,
+};
+
+use log::info;
+use env_logger;
+
+pub mod vm;
+pub mod instructions;
+
+pub mod repl;
+pub mod assembler;
+
+
 fn main() {
+    env_logger::init();
+    info!("Starting logging");
     let yaml = load_yaml!("cli.yml");
     let matches = App::from_yaml(yaml).get_matches();
     let target_file = matches.value_of("INPUT_FILE");
@@ -51,13 +57,13 @@ fn read_file(tmp: &str) -> String {
             match fh.read_to_string(&mut contents) {
                 Ok(_) => contents,
                 Err(e) => {
-                    println!("There was an error reading file: {:?}", e);
+                    eprintln!("There was an error reading file: {:?}", e);
                     std::process::exit(1);
                 }
             }
         },
         Err(e) => {
-            println!("File not found: {:?}", e);
+            eprintln!("File not found: {:?}", e);
             std::process::exit(1);
         }
     }

@@ -1,15 +1,16 @@
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum SymbolType {
     Label,
+    Integer,
     IrString
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Symbol {
     name: String,
-    symbol_type: SymbolType,
     offset: Option<u32>,
+    symbol_type: SymbolType,
 }
 
 impl Symbol {
@@ -30,7 +31,7 @@ impl Symbol {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct SymbolTable {
     symbols: Vec<Symbol>
 }
